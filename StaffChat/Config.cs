@@ -1,19 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
+using System;
 using System.IO;
 using TShockAPI;
 
 namespace StaffChatPlugin
 {
-    public class Config
+	public class Config
     {
         public static string SavePath = Path.Combine(TShock.SavePath, "StaffChat.json");
-        public static Clr DefaultChatColor = new Clr(200, 50, 150);
-        public Clr ChatColor = DefaultChatColor;
+        public static Color DefaultChatColor = new Color(200, 50, 150);
+        public Color ChatColor = DefaultChatColor;
         public string StaffChatPrefix = "[StaffChat]";
         public string StaffChatGuestTag = "<Guest>";
 
@@ -39,23 +36,6 @@ namespace StaffChatPlugin
                 Console.WriteLine("[StaffChatPlugin] - Error loading config file!");
                 Console.WriteLine(ex.ToString());
             }
-        }
-    }
-
-    public class Clr
-    {
-        int r;
-        int g;
-        int b;
-        public Clr(int R, int G, int B)
-        {
-            r=R;
-            g=G;
-            b=B;
-        }
-        public Color ToColor()
-        {
-            return new Color(r,g,b);
         }
     }
 }

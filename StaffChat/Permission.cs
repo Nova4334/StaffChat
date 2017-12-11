@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace StaffChatPlugin
+﻿namespace StaffChatPlugin
 {
-    public static class Permission
+	public static class Permission
     {
         public static readonly string Chat = "staffchat.chat";
         public static readonly string Invite = "staffchat.invite";

@@ -1,16 +1,16 @@
-﻿using System;
-using Terraria;
-using TShockAPI;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.IO;
-using System.Text;
 using System.Linq;
 using System.Reflection;
+using Terraria;
 using TerrariaApi.Server;
-using System.Collections.Generic;
+using TShockAPI;
+using TShockAPI.Hooks;
 
 namespace StaffChatPlugin
 {
-	[ApiVersion(1, 20)]
+	[ApiVersion(2,1)]
 	public class StaffChat : TerrariaPlugin
 	{
 		public static bool[] Spying = new bool[255];
@@ -39,27 +39,17 @@ namespace StaffChatPlugin
 
 		public override void Initialize()
 		{
-			ServerApi.Hooks.ServerChat.Register(this, OnChat);
+			PlayerHooks.PlayerCommand += OnCommand;
+			ServerApi.Hooks.GameInitialize.Register(this, OnInitialize);
 			ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
-			Commands.ChatCommands.Add(new Command(StaffChat_Chat, "s") { AllowServer = false });
-			Commands.ChatCommands.Add(new Command(Permission.Invite, StaffChat_Kick, "skick"));
-			Commands.ChatCommands.Add(new Command(Permission.Invite, StaffChat_Invite, "sinvite"));
-			Commands.ChatCommands.Add(new Command(Permission.Invite, StaffChat_Clear, "sclear"));
-			Commands.ChatCommands.Add(new Command(Permission.List, StaffChat_List, "slist"));
-			Commands.ChatCommands.Add(new Command(Permission.List, ShowStaff, "staff"));
-			Commands.ChatCommands.Add(new Command(Permission.SpyWhisper, SpyWhisper, "spywhisper") { AllowServer = false });
-
-			if (!File.Exists(Config.SavePath))
-				config.Save();
-
-			else config = Config.Load();
 		}
 
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing)
 			{
-				ServerApi.Hooks.ServerChat.Deregister(this, OnChat);
+				PlayerHooks.PlayerCommand -= OnCommand;
+				ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
 				ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
 			}
 			base.Dispose(disposing);
@@ -71,18 +61,28 @@ namespace StaffChatPlugin
 			Order = 1;
 		}
 
-		public void OnChat(ServerChatEventArgs args)
+		private void OnInitialize(EventArgs args)
 		{
-			if ((args.Text.StartsWith("/w ") || args.Text.StartsWith("/whisper ") || args.Text.StartsWith("/r ") || args.Text.StartsWith("/reply ")) && args.Text.Length >= 4)
-			{
-				foreach (TSPlayer ts in TShock.Players)
-				{
-					if (ts == null)
-						continue;
+			Commands.ChatCommands.Add(new Command(StaffChat_Chat, "s") { AllowServer = false });
+			Commands.ChatCommands.Add(new Command(Permission.Invite, StaffChat_Kick, "skick"));
+			Commands.ChatCommands.Add(new Command(Permission.Invite, StaffChat_Invite, "sinvite"));
+			Commands.ChatCommands.Add(new Command(Permission.Invite, StaffChat_Clear, "sclear"));
+			Commands.ChatCommands.Add(new Command(Permission.List, StaffChat_List, "slist"));
+			Commands.ChatCommands.Add(new Command(Permission.List, ShowStaff, "staff"));
+			Commands.ChatCommands.Add(new Command(Permission.SpyWhisper, SpyWhisper, "spywhisper") { AllowServer = false });
 
-					if (Spying[ts.Index])
-						ts.SendMessage(TShock.Players[args.Who].Name + ": " + args.Text, staffchatcolor);
-				}
+			if (!File.Exists(Config.SavePath))
+				config.Save();
+			else
+				config = Config.Load();
+		}
+
+		private void OnCommand(PlayerCommandEventArgs args)
+		{
+			if (args.CommandName.Equals("w") || args.CommandName.Equals("whisper") || args.CommandName.Equals("reply") || args.CommandName.Equals("r"))
+			{
+				foreach (var player in TShock.Players.Where(e => e != null && Spying[e.Index]))
+					player.SendMessage($"{args.Player.Name}: {args.CommandText}", staffchatcolor);
 			}
 		}
 
@@ -94,147 +94,120 @@ namespace StaffChatPlugin
 
 		private void StaffChat_Chat(CommandArgs args)
 		{
-			if (args.Parameters.Count <= 0)
+			if (args.Parameters.Count == 0)
 			{
-				args.Player.SendErrorMessage("Invalid syntax! proper syntax: /s <message>");
+				args.Player.SendErrorMessage($"Invalid syntax! proper syntax: {TShock.Config.CommandSpecifier}s <message>");
 				return;
 			}
-			if (!args.Player.Group.HasPermission(Permission.Chat) && !InStaffChat[args.Player.Index])
+
+			if (!args.Player.HasPermission(Permission.Chat) && !InStaffChat[args.Player.Index])
 			{
 				args.Player.SendErrorMessage("You need to be invited to talk in the staffchat!");
 				return;
 			}
-			foreach (TSPlayer ts in TShock.Players)
-			{
-				if (ts == null)
-					continue;
 
-				if (ts.Group.HasPermission(Permission.Chat) || InStaffChat[args.Player.Index])
-				{
-					string msg = string.Join(" ", args.Parameters);
-					ts.SendMessage(string.Format("{0}{1} {2}: {3}", config.StaffChatPrefix, (InStaffChat[args.Player.Index] ? " " + config.StaffChatGuestTag : ""), args.Player.Name, msg), staffchatcolor);
-				}
-			}
+			foreach (TSPlayer ts in TShock.Players.Where(e => e != null && (e.HasPermission(Permission.Chat) || InStaffChat[e.Index])))
+				ts.SendMessage($"{config.StaffChatPrefix}{(InStaffChat[args.Player.Index] ? " " + config.StaffChatGuestTag : "")} {args.Player.Name}: {string.Join(" ", args.Parameters)}", staffchatcolor);
 		}
 
 		private void StaffChat_Invite(CommandArgs args)
 		{
 			if (args.Parameters.Count < 1)
 			{
-				args.Player.SendMessage("Invalid syntax! Syntax: /sinvite <player>", Color.Red);
+				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.CommandSpecifier}sinvite <player>");
 				return;
 			}
-			var foundplr = TShock.Utils.FindPlayer(args.Parameters[0]);
+			var foundplr = TShock.Utils.FindPlayer(string.Join(" ", args.Parameters));
 			if (foundplr.Count == 0)
 			{
-				args.Player.SendMessage("Invalid player!", Color.Red);
+				args.Player.SendErrorMessage("Invalid player!");
+				return;
 			}
-			else if (foundplr.Count > 1)
+			if (foundplr.Count > 1)
 			{
-				args.Player.SendMessage(string.Format("More than one ({0}) player matched!", foundplr.Count), Color.Red);
+				TShock.Utils.SendMultipleMatchError(args.Player, foundplr.Select(e => e.Name));
+				return;
 			}
 			var plr = foundplr[0];
 
-			if (plr.Group.HasPermission(Permission.Chat) || InStaffChat[plr.Index])
+			if (plr.HasPermission(Permission.Chat) || InStaffChat[plr.Index])
 			{
 				args.Player.SendErrorMessage("This player is already in the staffchat!");
 				return;
 			}
+
 			InStaffChat[plr.Index] = true;
-			plr.SendInfoMessage("You have been invited into the staffchat, type \"/s <message>\" to talk.");
-			foreach (TSPlayer ts in TShock.Players)
-			{
-				if (ts == null)
-					continue;
+			plr.SendInfoMessage($"You have been invited into the staffchat, type \"{TShock.Config.CommandSpecifier}s <message>\" to talk.");
 
-				if (ts.Index == plr.Index || !ts.Group.HasPermission(Permission.Chat))
-					continue;
-
+			foreach (TSPlayer ts in TShock.Players.Where(e => e != null && e.Index != plr.Index && e.HasPermission(Permission.Chat)))
 				ts.SendInfoMessage(plr.Name + " has been invited into the staffchat.");
-
-			}
 		}
 
 		private void StaffChat_Kick(CommandArgs args)
 		{
 			if (args.Parameters.Count < 1)
 			{
-				args.Player.SendMessage("Invalid syntax! Syntax: /skick <player>", Color.Red);
+				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.CommandSpecifier}skick <player>");
 				return;
 			}
 			var foundplr = TShock.Utils.FindPlayer(args.Parameters[0]);
 			if (foundplr.Count == 0)
 			{
-				args.Player.SendMessage("Invalid player!", Color.Red);
+				args.Player.SendErrorMessage("Invalid player!");
+				return;
 			}
-			else if (foundplr.Count > 1)
+			if (foundplr.Count > 1)
 			{
-				args.Player.SendMessage(string.Format("More than one ({0}) player matched!", foundplr.Count), Color.Red);
+				TShock.Utils.SendMultipleMatchError(args.Player, foundplr.Select(e => e.Name));
+				return;
 			}
 			var plr = foundplr[0];
 
-			if (!InStaffChat[plr.Index] || !plr.Group.HasPermission(Permission.Chat))
+			if (!InStaffChat[plr.Index] || !plr.HasPermission(Permission.Chat))
 			{
 				args.Player.SendErrorMessage("This player is not in the staffchat!");
 				return;
 			}
-			if (plr.Group.HasPermission(Permission.Chat))
+			if (plr.HasPermission(Permission.Chat))
 			{
 				args.Player.SendErrorMessage("You can't kick another staff member from the staffchat!");
 				return;
 			}
-			InStaffChat[plr.Index] = false;
-			foreach (TSPlayer ts in TShock.Players)
-			{
-				if (ts == null)
-					continue;
 
-				if (ts.Group.HasPermission(Permission.Chat) || InStaffChat[ts.Index])
+			InStaffChat[plr.Index] = false;
+			plr.SendInfoMessage("You have been removed from staffchat!");
+
+			foreach (TSPlayer ts in TShock.Players.Where(e => e != null && (e.HasPermission(Permission.Chat) || InStaffChat[e.Index])))
 					ts.SendInfoMessage(plr.Name + " has been removed from the staffchat.");
-			}
 		}
 
 		private void StaffChat_Clear(CommandArgs args)
 		{
-			foreach (TSPlayer ts in TShock.Players)
+			foreach (TSPlayer ts in TShock.Players.Where(e => e != null && (InStaffChat[e.Index] || e.HasPermission(Permission.Chat))))
 			{
-				if (ts == null)
-					continue;
-
 				if (InStaffChat[ts.Index])
 				{
 					InStaffChat[ts.Index] = false;
 					ts.SendErrorMessage("You have been removed from the staffchat!");
 				}
-
-				else if (ts.Group.HasPermission(Permission.Chat))
+				else
 					ts.SendInfoMessage("All guests have been removed from the staffchat!");
 			}
 		}
 
 		private void StaffChat_List(CommandArgs args)
 		{
-			StringBuilder sb = new StringBuilder();
-			for (int i = 0; i < TShock.Players.Length; i++)
-			{
-				if (TShock.Players[i] == null)
-					continue;
+			string players = string.Join(", ", TShock.Players.Where(e => e != null && InStaffChat[e.Index]).Select(e => e.Name));
 
-				if (InStaffChat[TShock.Players[i].Index])
-					sb.Append(TShock.Players[i].Name + (i == TShock.Players.Length - 1 ? "" : ", "));
-
-				string msg = sb.ToString();
-
-				if (msg.Length > 0)
-					args.Player.SendInfoMessage("Guests in the staffchat: " + sb.ToString());
-				else
-					args.Player.SendErrorMessage("There are no guests in the staffchat!");
-			}
+			if (!string.IsNullOrWhiteSpace(players))
+				args.Player.SendInfoMessage($"Guests in the staffchat: {players}");
+			else
+				args.Player.SendInfoMessage("There are no guests in the staffchat!");
 		}
 
 		public void ShowStaff(CommandArgs args)
 		{
-			var staff = from staffmember in TShock.Players where staffmember != null && staffmember.Group.HasPermission(Permission.StaffMember) orderby staffmember.Group.Name select staffmember;
+			var staff = from staffmember in TShock.Players where staffmember != null && staffmember.HasPermission(Permission.StaffMember) orderby staffmember.Group.Name select staffmember;
 			args.Player.SendInfoMessage("~ Currently online staffmembers ~");
 			foreach (TSPlayer ts in staff)
 			{
@@ -242,7 +215,7 @@ namespace StaffChatPlugin
 					continue;
 
 				Color groupcolor = new Color(ts.Group.R, ts.Group.G, ts.Group.B);
-				args.Player.SendMessage(string.Format("{0}{1}", ts.Group.Prefix, ts.Name), groupcolor);
+				args.Player.SendMessage(string.Format($"{ts.Group.Prefix}{ts.Name}"), groupcolor);
 			}
 		}
 
@@ -251,18 +224,13 @@ namespace StaffChatPlugin
 			if (args.Parameters.Count == 1 && args.Parameters[0] == "-l")
 			{
 				args.Player.SendInfoMessage("Currently spying on whispers:");
-				foreach (TSPlayer ts in TShock.Players)
-				{
-					if (ts == null)
-						continue;
-					if (Spying[ts.Index])
-						args.Player.SendInfoMessage(ts.Name);
-				}
+				foreach (TSPlayer ts in TShock.Players.Where(e => e != null && Spying[e.Index]))
+					args.Player.SendInfoMessage(ts.Name);
 				args.Player.SendInfoMessage(new string('-', 30));
 				return;
 			}
 			Spying[args.Player.Index] = !Spying[args.Player.Index];
-			args.Player.SendInfoMessage(string.Format("You are {0} spying on whispers", Spying[args.Player.Index] ? "now" : "not"));
+			args.Player.SendInfoMessage($"You are {(Spying[args.Player.Index] ? "now" : "not")} spying on whispers");
 		}
 	}
 }
