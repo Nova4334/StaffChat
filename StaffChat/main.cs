@@ -117,7 +117,7 @@ namespace StaffChatPlugin
 				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.CommandSpecifier}sinvite <player>");
 				return;
 			}
-			var foundplr = TShock.Utils.FindPlayer(string.Join(" ", args.Parameters));
+			var foundplr = TSPlayer.FindByNameOrID(string.Join(" ", args.Parameters));
 			if (foundplr.Count == 0)
 			{
 				args.Player.SendErrorMessage("Invalid player!");
@@ -125,7 +125,7 @@ namespace StaffChatPlugin
 			}
 			if (foundplr.Count > 1)
 			{
-				TShock.Utils.SendMultipleMatchError(args.Player, foundplr.Select(e => e.Name));
+				TShock.Players[args.Player.Index].SendMultipleMatchError(foundplr.Select(e => e.Name));
 				return;
 			}
 			var plr = foundplr[0];
@@ -150,7 +150,7 @@ namespace StaffChatPlugin
 				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.CommandSpecifier}skick <player>");
 				return;
 			}
-			var foundplr = TShock.Utils.FindPlayer(args.Parameters[0]);
+			var foundplr = TSPlayer.FindByNameOrID(string.Join(" ", args.Parameters));
 			if (foundplr.Count == 0)
 			{
 				args.Player.SendErrorMessage("Invalid player!");
@@ -158,7 +158,7 @@ namespace StaffChatPlugin
 			}
 			if (foundplr.Count > 1)
 			{
-				TShock.Utils.SendMultipleMatchError(args.Player, foundplr.Select(e => e.Name));
+                TShock.Players[args.Player.Index].SendMultipleMatchError(foundplr.Select(e => e.Name));
 				return;
 			}
 			var plr = foundplr[0];
