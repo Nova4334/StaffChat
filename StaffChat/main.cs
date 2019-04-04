@@ -79,7 +79,7 @@ namespace StaffChatPlugin
 
 		private void OnCommand(PlayerCommandEventArgs args)
 		{
-			if (args.CommandName.Equals("w") || args.CommandName.Equals("whisper") || args.CommandName.Equals("reply") || args.CommandName.Equals("r"))
+			if (args.CommandName.Equals("w") || args.CommandName.Equals("whisper") || args.CommandName.Equals("reply") || args.CommandName.Equals("r") || args.CommandName.Equals("tell"))
 			{
 				foreach (var player in TShock.Players.Where(e => e != null && Spying[e.Index]))
 					player.SendMessage($"{args.Player.Name}: {args.CommandText}", staffchatcolor);
