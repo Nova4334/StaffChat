@@ -96,7 +96,7 @@ namespace StaffChatPlugin
 		{
 			if (args.Parameters.Count == 0)
 			{
-				args.Player.SendErrorMessage($"Invalid syntax! proper syntax: {TShock.Config.CommandSpecifier}s <message>");
+				args.Player.SendErrorMessage($"Invalid syntax! proper syntax: {TShock.Config.Settings.CommandSpecifier}s <message>");
 				return;
 			}
 
@@ -114,7 +114,7 @@ namespace StaffChatPlugin
 		{
 			if (args.Parameters.Count < 1)
 			{
-				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.CommandSpecifier}sinvite <player>");
+				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.Settings.CommandSpecifier}sinvite <player>");
 				return;
 			}
 			var foundplr = TSPlayer.FindByNameOrID(string.Join(" ", args.Parameters));
@@ -137,7 +137,7 @@ namespace StaffChatPlugin
 			}
 
 			InStaffChat[plr.Index] = true;
-			plr.SendInfoMessage($"You have been invited into the staffchat, type \"{TShock.Config.CommandSpecifier}s <message>\" to talk.");
+			plr.SendInfoMessage($"You have been invited into the staffchat, type \"{TShock.Config.Settings.CommandSpecifier}s <message>\" to talk.");
 
 			foreach (TSPlayer ts in TShock.Players.Where(e => e != null && e.Index != plr.Index && e.HasPermission(Permission.Chat)))
 				ts.SendInfoMessage(plr.Name + " has been invited into the staffchat.");
@@ -147,7 +147,7 @@ namespace StaffChatPlugin
 		{
 			if (args.Parameters.Count < 1)
 			{
-				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.CommandSpecifier}skick <player>");
+				args.Player.SendErrorMessage($"Invalid syntax! Syntax: {TShock.Config.Settings.CommandSpecifier}skick <player>");
 				return;
 			}
 			var foundplr = TSPlayer.FindByNameOrID(string.Join(" ", args.Parameters));
